@@ -1,0 +1,11 @@
+    name: Rifts
+    main: io.github.lancedh.rifts.Rifts
+    version: {$VersionNumber}
+    authors: 
+        - LanceDH   
+    commands:
+        place:
+            description: Place the next piece of the maze
+            usage: /<command>
+            permission: 
+            permission-message: You don't have <permission>
