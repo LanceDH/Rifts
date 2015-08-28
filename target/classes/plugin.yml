@@ -5,7 +5,12 @@
         - LanceDH   
     commands:
         place:
-            description: Place the next piece of the maze
+            description: Place the next piece of the maze.
             usage: /<command>
+            permission: 
+            permission-message: You don't have <permission>
+        gen:
+            description: Build a maze of a specific size.
+            usage: /<command> <size>
             permission: 
             permission-message: You don't have <permission>

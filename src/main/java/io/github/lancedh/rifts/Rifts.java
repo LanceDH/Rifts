@@ -6,18 +6,10 @@
 package io.github.lancedh.rifts;
 
 import java.util.Random;
-import java.util.logging.Level;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -25,10 +17,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  * @author LanceDH
  */
 public class Rifts extends JavaPlugin implements Listener{
-     private final int GROUND_Y = 7;
-    private final int MAZE_GROUND = 32;
-    private int _chunkSize = 0;
-    private int _nrSpawnedChunks = 0;
+    private Generator gen = null;
     
     @Override
     public void onEnable() {
@@ -45,41 +34,36 @@ public class Rifts extends JavaPlugin implements Listener{
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (cmd.getName().equalsIgnoreCase("place")) { 
             if(!(sender instanceof Player)){return false;}
-            _chunkSize = CountChunkSize((Player)sender);
+            
+            if(gen == null){
+                gen = new Generator((Player)sender);
+            }
+            
             Random rng = new Random();
-            CopyChunk((Player)sender, rng.nextInt(7)+1);
+            gen.CopyChunk((Player)sender, rng.nextInt(7)+1);
+            return true;
+	}
+        
+         if (cmd.getName().equalsIgnoreCase("gen")) { 
+            if(!(sender instanceof Player)){return false;}
+            
+            if(gen == null){
+                gen = new Generator((Player)sender);
+            }
+            
+            int size = Integer.parseInt(args[0]);
+             for (int i = 0; i < size; i++) {
+                 Random rng = new Random();
+                 gen.CopyChunk((Player)sender, rng.nextInt(7)+1);
+             }
+            
+            
             return true;
 	}
 	return false; 
     }
     
-    public int CountChunkSize(Player p){
-        Location loc = new Location(p.getLocation().getWorld(), 0, GROUND_Y, -1);
-        int count = 1;
-        while (count <= 16 && loc.getBlock().getType() != Material.WOOL) {
-            count += 1;
-            loc.add(1, 0, 0);
-        }
-        return count;
-    }
     
-    public void CopyChunk(Player p, int chunkId){
-        Location loc = p.getLocation();
-        Block b = null;
-        World w = loc.getWorld();
-        
-        for (int x = 0; x < _chunkSize; x++) {
-            for (int y = 0; y < _chunkSize; y++) {
-                for (int z = 0; z < _chunkSize; z++) {
-                   b =  w.getBlockAt(x, GROUND_Y + y, chunkId * _chunkSize + z);
-                   Location nloc = new Location(w, 0, MAZE_GROUND, _nrSpawnedChunks * _chunkSize);
-                   nloc.add(x, y, z);
-                   nloc.getBlock().setType(b.getType());
-                   nloc.getBlock().setData(b.getData());
-                }
-            }
-        }
-        
-        _nrSpawnedChunks += 1;
-    }
+    
+    
 }
