@@ -36,27 +36,39 @@ public class Rifts extends JavaPlugin implements Listener{
             if(!(sender instanceof Player)){return false;}
             
             if(gen == null){
-                gen = new Generator((Player)sender);
+                gen = new Generator((Player)sender, 7);
             }
             
-            Random rng = new Random();
-            gen.CopyChunk((Player)sender, rng.nextInt(7)+1);
+            gen.GenNextChunk();
+            gen.DrawMaze();
+
             return true;
+	}
+        
+        if (cmd.getName().equalsIgnoreCase("draw")) { 
+            if(!(sender instanceof Player)){return false;}
+            
+            if(gen != null){
+                gen.DrawMaze();
+            }
 	}
         
          if (cmd.getName().equalsIgnoreCase("gen")) { 
             if(!(sender instanceof Player)){return false;}
             
             if(gen == null){
-                gen = new Generator((Player)sender);
+                gen = new Generator((Player)sender, 7);
             }
+            
+            gen.WipeMaze();
             
             int size = Integer.parseInt(args[0]);
              for (int i = 0; i < size; i++) {
-                 Random rng = new Random();
-                 gen.CopyChunk((Player)sender, rng.nextInt(7)+1);
+                gen.GenNextChunk();
+                
              }
             
+             gen.DrawMaze();
             
             return true;
 	}
