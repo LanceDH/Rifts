@@ -39,9 +39,16 @@ public class Rifts extends JavaPlugin implements Listener{
                 gen = new Generator((Player)sender, 7);
             }
             
-            gen.GenNextChunk();
-            gen.DrawMaze();
+            while(gen.SetUpNextBranch()){
+ 
+                // Create branch
+                while (gen.GenNextChunk()) {}
 
+            }
+            
+            gen.DrawMaze();
+            getLogger().info("Maze fully generated!");
+            
             return true;
 	}
         
@@ -62,11 +69,20 @@ public class Rifts extends JavaPlugin implements Listener{
             
             gen.WipeMaze();
             
-            int size = Integer.parseInt(args[0]);
-             for (int i = 0; i < size; i++) {
-                gen.GenNextChunk();
-                
-             }
+            // gen a maze for as long as possible
+            while (gen.GenNextChunk()) {}
+            
+            // Create end room at current end point
+            gen.GenEndRoom();
+            
+            // Start adding branches
+            while(gen.SetUpNextBranch()){
+ 
+                // Create branch
+                while (gen.GenNextChunk()) {}
+
+            }
+            getLogger().info("Maze fully generated!");
             
              gen.DrawMaze();
             

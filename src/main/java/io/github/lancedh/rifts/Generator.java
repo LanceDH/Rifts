@@ -9,6 +9,7 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -99,7 +100,7 @@ public class Generator {
                 x += i * _chunkSize;
                 y += j * _chunkSize;
                 if(_maze[i][j] != null){
-                    DrawChunk(_maze[i][j].getChunkId(), x, y);
+                    DrawChunk(_maze[i][j].GetChunkId(), x, y);
                 }else{
                     //spawn a bedrock block to indicate empty chunks
                     Location loc = new Location(_world, x + _chunkSize/2, MAZE_GROUND, y + _chunkSize/2);
@@ -188,18 +189,147 @@ public class Generator {
         return -1;
     }
     
-    public void GenNextChunk(){
+    private void CheckForPossibleBranches(){
+        Chunk c = null;
+        int[] freeSpots = new int[4];
+        int[][] countArr = new int[_mazeSize][_mazeSize];
+        
+        for (int x = 0; x < _mazeSize; x++) {
+            for (int y = 0; y < _mazeSize; y++) {
+                if(_maze[x][y] != null && IsNotStartOrEnd(_maze[x][y])){
+                    c = _maze[x][y];
+                    
+                    
+                    for (int i = 0; i < 4; i++) {
+                        freeSpots[i] = 0;
+                    }
+                    ResetCountArray(countArr);
+                    if(y-1 >= 0){
+                        freeSpots[0] = CountEmptyChunksOnSide(x, y-1, countArr);
+                    }
+                    ResetCountArray(countArr);
+                    if(x+1 <= _mazeSize - 1){
+                        freeSpots[1] = CountEmptyChunksOnSide(x+1, y, countArr);
+                    }
+                    ResetCountArray(countArr);
+                    if(y+1 <= _mazeSize - 1){
+                        freeSpots[2] = CountEmptyChunksOnSide(x, y+1, countArr);
+                    }
+                    ResetCountArray(countArr);
+                    if(x-1 >= 0){
+                        freeSpots[3] = CountEmptyChunksOnSide(x-1, y, countArr);
+                    }
+
+                    c.SetFreeSpots(freeSpots);
+                }
+            }
+        }
+            
+    }
+    
+    public boolean SetUpNextBranch(){
+        
+        CheckForPossibleBranches();
+        
+        int longest = 0;
+        // Find the longest possible branch
+        for (int x = 0; x < _mazeSize; x++) {
+            for (int y = 0; y < _mazeSize; y++) {
+                if(_maze[x][y] != null && IsNotStartOrEnd(_maze[x][y]) && _maze[x][y].HasFreeSpots()){
+                    for (int spots : _maze[x][y].getFreeSpots()) {
+                        if (spots > longest) {
+                            longest = spots;
+                        }
+                    }
+                }
+            }
+        }
+        
+        
+        
+        if(longest == 0){
+            // No branches left
+            return false;
+        }
+        
+        // Get all chunks with a direction to the longest branch
+        ArrayList<Chunk> list = new ArrayList<>();
+        Chunk c = null;
+        for (int x = 0; x < _mazeSize; x++) {
+            for (int y = 0; y < _mazeSize; y++) {
+                if(_maze[x][y] != null && IsNotStartOrEnd(_maze[x][y]) && _maze[x][y].HasFreeSpots()){
+                    c = _maze[x][y];
+                    int[] freeSpots = c.getFreeSpots();
+                    for (int i = 0; i < 4; i++) {
+                        if(freeSpots[i] == longest){
+                            list.add(c);
+                        }
+                    }
+                }
+            }
+        }
+      
+        // Get a random winner
+        c = list.get(_rng.nextInt(list.size()));
+
+        // Only picks the first available, should pick random if more
+        int[] freeSpots = c.getFreeSpots();
+        for (int i = 0; i < 4; i++) {
+            if(freeSpots[i] == longest){
+                StartBranch(c, (int)Math.pow(2, i));
+            }
+        }
+        
+        return true;
+    }
+    
+    private boolean IsNotStartOrEnd(Chunk c){
+        if(c.GetChunkId() == 0 || // Start
+                c.GetChunkId() == 16 || // End up
+                c.GetChunkId() == 17 || // End right
+                c.GetChunkId() == 18 || // end down
+                c.GetChunkId() == 19 // End left
+                ){
+            return false;
+        }
+        return true;
+    }
+    
+    public void GenEndRoom(){
+        int id = 16;
+        
+        switch(_prevDir){
+            case 2:
+                id += 1;
+                break;
+            case 4:
+                id += 2;
+                break;
+            case 8:
+                id += 3;
+                break;     
+        }
+        
+        _maze[_nextX][_nextY] = new Chunk(id, _nextX, _nextY);
+    }
+    
+    public boolean GenNextChunk(){
         int x = _nextX;
         int y = _nextY;
         int prevDir = _prevDir;
         int nextDir = GetNextDirection(_prevDir, x, y);
         if(nextDir == -1){
-            getLogger().info("Maze got stuck.");
-            return;
+            // Maze encountered a dead end
+            // Recreate dead end for 1 block branches
+            _maze[_nextX][_nextY] = new Chunk(_prevDir, _nextX, _nextY);
+            return false;
         }
         _maze[x][y] = new Chunk(prevDir + nextDir , x, y);
         SetNextValues(x, y, nextDir);
+        // Create dead end for counting next path
         _maze[_nextX][_nextY] = new Chunk(_prevDir, _nextX, _nextY);
+        
+        return true;
     }
     
     private void SetNextValues(int x, int y, int dir){
@@ -352,5 +482,14 @@ public class Generator {
         }
         
         _nrSpawnedChunks += 1;
+    }
+
+    private void StartBranch(Chunk c, int dir) {
+        _nextX = c.GetxPos();
+        _nextY = c.GetyPos();
+        SetNextValues(_nextX, _nextY, dir);
+
+        c.AddDirectionToChunkId(dir);
+                
     }
 }
