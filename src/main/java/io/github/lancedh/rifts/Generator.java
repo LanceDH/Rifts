@@ -5,22 +5,17 @@
  */
 package io.github.lancedh.rifts;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.TreeMap;
-import org.bukkit.Bukkit;
-import static org.bukkit.Bukkit.getLogger;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
+import org.bukkit.block.Banner;
 import org.bukkit.entity.Player;
 
 /**
@@ -39,6 +34,7 @@ public class Generator {
     private int _nextY = 0 ;
     private int _prevDir = 0;
     private Random _rng;
+    private ChunkStorage _storage;
     
     public Generator(Player p, int size) {
         //Always make maze an uneven number
@@ -46,9 +42,94 @@ public class Generator {
         _maze = new Chunk[_mazeSize][_mazeSize];
         _world = p.getWorld();
         _rng = new Random();
+        _storage = new ChunkStorage();
         CreateStart();
         InitChunkSize(p);
+        FillChunkStorage();
         //CopyChunk(p, 0);
+    }
+    
+    public void DEBUGTestStorage(){
+        BlockState[][][] chunk = new BlockState[_chunkSize][_chunkSize][_chunkSize];
+        Location nloc = null;
+        BlockState bs = null;
+        for (int i = 0; i <= 19; i++) {
+            chunk = _storage.GetChunkOfId(i);
+            
+            
+            for (int x = 0; x < _chunkSize; x++) {
+                for (int y = 0; y < _chunkSize; y++) {
+                    for (int z = 0; z < _chunkSize; z++) {
+                        bs = chunk[x][y][z];
+                        if(!BlockStateRequiresWall(bs)){
+                        //start point of chunk
+                        nloc = new Location(_world, _chunkSize*2, GROUND_Y, i*_chunkSize);
+                        //move location per block
+                        nloc.add(x, y, z);
+                        
+                        
+                        nloc.getBlock().setTypeIdAndData(bs.getTypeId(), bs.getData().getData(), false);
+
+                        SetSpecificData(bs, nloc);
+                        }
+                    }
+                }
+            }
+            
+            //torches
+            
+            for (int x = 0; x < _chunkSize; x++) {
+                for (int y = 0; y < _chunkSize; y++) {
+                    for (int z = 0; z < _chunkSize; z++) {
+                        if(BlockStateRequiresWall(bs)){
+                        //start point of chunk
+                        nloc = new Location(_world, _chunkSize*2, GROUND_Y, i*_chunkSize);
+                        //move location per block
+                        nloc.add(x, y, z);
+                        bs = chunk[x][y][z];
+                        
+                        nloc.getBlock().setTypeIdAndData(bs.getTypeId(), bs.getData().getData(), false);
+                        }
+                    }
+                }
+            }
+            
+        }
+        
+    }
+    
+    public void FillChunkStorage(){
+        _storage.Reset();
+        Location nloc = null;
+        int variant = 0;
+        for (int i = 0; i <= 19; i++) {
+            variant = 0;
+            do{
+                _storage.AddChunk(i, CopyChunk(i, variant));
+                variant += _chunkSize;
+                nloc = new Location(_world, variant, GROUND_Y, i*_chunkSize);
+            }while(nloc.getBlock().getType() != Material.AIR);
+        }
+    }
+    
+    private BlockState[][][] CopyChunk(int id, int variant){
+        BlockState[][][] chunk = new BlockState[_chunkSize][_chunkSize][_chunkSize];
+        Location nloc = null;
+        do{
+            for (int x = 0; x < _chunkSize; x++) {
+                for (int y = 0; y < _chunkSize; y++) {
+                    for (int z = 0; z < _chunkSize; z++) {
+                        //start point of chunk
+                        nloc = new Location(_world, variant, GROUND_Y, id*_chunkSize);
+                        //move location per block
+                        nloc.add(x, y, z);
+                        chunk[x][y][z] = nloc.getBlock().getState();
+                    }
+                }
+            }
+        }while(nloc == null);
+        
+        return chunk;
     }
     
     private void CreateStart(){
@@ -76,14 +157,14 @@ public class Generator {
             }
         }
         
-        for (int x = -_mazeSize * _chunkSize / 2-1; x < _mazeSize * _chunkSize / 2+1; x++) {
-            for (int z = -_mazeSize * _chunkSize / 2-1; z < _mazeSize * _chunkSize / 2+1; z++) {
-                for (int y = MAZE_GROUND; y < MAZE_GROUND + _chunkSize; y++) {
-                   Location nloc = new Location(_world, x, y, z);
-                   nloc.getBlock().setType(Material.AIR);
-                }
-            }
-        }
+       // for (int x = -_mazeSize * _chunkSize / 2-1; x < _mazeSize * _chunkSize / 2+1; x++) {
+       //     for (int z = -_mazeSize * _chunkSize / 2-1; z < _mazeSize * _chunkSize / 2+1; z++) {
+       //         for (int y = MAZE_GROUND; y < MAZE_GROUND + _chunkSize; y++) {
+       //            Location nloc = new Location(_world, x, y, z);
+       //            nloc.getBlock().setType(Material.AIR);
+       //        }
+       //     }
+       // }
         
         CreateStart();
     }
@@ -111,33 +192,90 @@ public class Generator {
     }
     
     private void DrawChunk(int chunkId, int xPos, int yPos){
-        Block b = null;
-        
+        BlockState[][][] chunk = _storage.GetChunkOfId(chunkId);
+        BlockState bs = null;
+        Location nloc = new Location(_world, xPos, MAZE_GROUND, yPos);
 
         for (int x = 0; x < _chunkSize; x++) {
             for (int y = 0; y < _chunkSize; y++) {
                 for (int z = 0; z < _chunkSize; z++) {
-                    b =  _world.getBlockAt(x, GROUND_Y + y, chunkId * _chunkSize + z);
+                    bs =  chunk[x][y][z];
+                    if(!BlockStateRequiresWall(bs)){
                     //start point of chunk
-                    Location nloc = new Location(_world, xPos, MAZE_GROUND, yPos);
+                    nloc = new Location(_world, xPos, MAZE_GROUND, yPos);
                     //move location per block
-                   nloc.add(x, y, z);
-                   nloc.getBlock().setType(b.getType());
-                   nloc.getBlock().setData(b.getData());
-                   // signs
-                   if(b.getTypeId() == 0x3f){
-                       Sign sOrigin = (Sign) b.getState();
-                       Sign sNew = (Sign) nloc.getBlock().getState();
-                       for (int i = 0; i < 4; i++) {
-                           sNew.setLine(i, sOrigin.getLine(i));
-                           sNew.update();
-                       }
-                   }
+                    nloc.add(x, y, z);
+                    
+                    
+                    nloc.getBlock().setType(bs.getType());
+                    nloc.getBlock().setData(bs.getData().getData());
+                    
+                    SetSpecificData(bs, nloc);
+                }
                 }
             }
         }
         
+        //torches
+        for (int x = 0; x < _chunkSize; x++) {
+            for (int y = 0; y < _chunkSize; y++) {
+                for (int z = 0; z < _chunkSize; z++) {
+                    bs =  chunk[x][y][z];
+                    if(BlockStateRequiresWall(bs)){
+                    //start point of chunk
+                    nloc = new Location(_world, xPos, MAZE_GROUND, yPos);
+                    //move location per block
+                    nloc.add(x, y, z);
+
+                    nloc.getBlock().setTypeIdAndData(bs.getTypeId(), bs.getData().getData(), false);
+                    }
+                }
+            }
+        }
+
+        
         _nrSpawnedChunks += 1;
+    }
+    
+    private void SetSpecificData(BlockState bs, Location loc){
+        // Signs
+        if(bs.getType() == Material.SIGN || bs.getType() == Material.WALL_SIGN){
+            Sign state = (Sign) bs;
+            Sign target = (Sign) loc.getBlock().getState();
+            for (int i = 0; i < 4; i++) {
+                target.setLine(i, state.getLine(i));
+                target.update();
+            }
+        }
+        
+        // Banners
+        if(bs.getType() == Material.STANDING_BANNER || bs.getType() == Material.BANNER.WALL_BANNER){
+            Banner state = (Banner) bs;
+            Banner target = (Banner) loc.getBlock().getState();
+            target.setBaseColor(state.getBaseColor());
+            target.setPatterns(state.getPatterns());
+            target.update();
+        }
+    }
+    
+    private boolean BlockStateRequiresWall(BlockState bs){
+        if(bs.getType() == Material.TORCH){
+            return true;
+        }
+        
+        if(bs.getType() == Material.LADDER){
+            return true;
+        }
+        
+        if(bs.getType() == Material.TRIPWIRE_HOOK){
+            return true;
+        }
+        
+        if(bs.getType() == Material.VINE){
+            return true;
+        }
+        
+        return false;
     }
     
     private void InitChunkSize(Player p){
@@ -469,7 +607,7 @@ public class Generator {
                    nloc.getBlock().setType(b.getType());
                    nloc.getBlock().setData(b.getData());
                    // signs
-                   if(b.getTypeId() == 0x3f){
+                   if(b.getType() == Material.SIGN){
                        Sign sOrigin = (Sign) b.getState();
                        Sign sNew = (Sign) nloc.getBlock().getState();
                        for (int i = 0; i < 4; i++) {

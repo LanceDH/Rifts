@@ -5,6 +5,8 @@
  */
 package io.github.lancedh.rifts;
 
+import java.time.LocalTime;
+import java.util.Calendar;
 import java.util.Random;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -39,15 +41,7 @@ public class Rifts extends JavaPlugin implements Listener{
                 gen = new Generator((Player)sender, 7);
             }
             
-            while(gen.SetUpNextBranch()){
- 
-                // Create branch
-                while (gen.GenNextChunk()) {}
-
-            }
-            
-            gen.DrawMaze();
-            getLogger().info("Maze fully generated!");
+            gen.DEBUGTestStorage();
             
             return true;
 	}
@@ -56,18 +50,35 @@ public class Rifts extends JavaPlugin implements Listener{
             if(!(sender instanceof Player)){return false;}
             
             if(gen != null){
-                gen.DrawMaze();
+                gen.FillChunkStorage();
             }
 	}
         
          if (cmd.getName().equalsIgnoreCase("gen")) { 
             if(!(sender instanceof Player)){return false;}
-            
-            if(gen == null){
-                gen = new Generator((Player)sender, 7);
+            int size = 7;
+            try {
+                size = Integer.parseInt(args[0]);
+            } catch (Exception e) {
+                sender.sendMessage("Wrong arguements.");
+                return false;
+            }
+
+            if(size < 3){
+                sender.sendMessage("Maze too small.");
+                return false;
             }
             
+            gen = new Generator((Player)sender, size);
+            
+            long start = System.nanoTime();
+
             gen.WipeMaze();
+            
+            long end = System.nanoTime();
+            getLogger().info("Wipe took: " + (end - start)/1e6);
+            end = start;
+            start = System.nanoTime();
             
             // gen a maze for as long as possible
             while (gen.GenNextChunk()) {}
@@ -82,9 +93,15 @@ public class Rifts extends JavaPlugin implements Listener{
                 while (gen.GenNextChunk()) {}
 
             }
-            getLogger().info("Maze fully generated!");
+            end = System.nanoTime();
+            getLogger().info("Generated in: " + (end - start)/1e6);
+            end = start;
+            start = System.nanoTime();
             
-             gen.DrawMaze();
+            gen.DrawMaze();
+             
+            end = System.nanoTime();
+            getLogger().info("Drawn in: " + (end - start)/1e6);
             
             return true;
 	}

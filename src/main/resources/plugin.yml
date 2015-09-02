@@ -1,6 +1,6 @@
     name: Rifts
     main: io.github.lancedh.rifts.Rifts
-    version: 0.1
+    version: 0.4
     authors: 
         - LanceDH   
     commands:
