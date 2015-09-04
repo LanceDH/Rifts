@@ -5,26 +5,43 @@
  */
 package io.github.lancedh.rifts;
 
-import java.time.LocalTime;
-import java.util.Calendar;
-import java.util.Random;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 /**
  *
  * @author LanceDH
  */
 public class Rifts extends JavaPlugin implements Listener{
-    private Generator gen = null;
+    private Generator _gen = null;
+    private World _world = null;
+    private MobHandler _mh = null;
+    private Player _player = null;
     
     @Override
     public void onEnable() {
         getServer().getPluginManager().registerEvents(this, this);
         getLogger().info("Rifts has been enabled.");
+        _world = Bukkit.getWorlds().get(0);
+        _mh = new MobHandler(_world);
+        
     }
     
     @Override
@@ -37,11 +54,9 @@ public class Rifts extends JavaPlugin implements Listener{
         if (cmd.getName().equalsIgnoreCase("place")) { 
             if(!(sender instanceof Player)){return false;}
             
-            if(gen == null){
-                gen = new Generator((Player)sender, 7);
+            for (int i = 0; i < 300; i++) {
+                System.out.println(i + ": " + (char)i); 
             }
-            
-            gen.DEBUGTestStorage();
             
             return true;
 	}
@@ -49,16 +64,20 @@ public class Rifts extends JavaPlugin implements Listener{
         if (cmd.getName().equalsIgnoreCase("draw")) { 
             if(!(sender instanceof Player)){return false;}
             
-            if(gen != null){
-                gen.FillChunkStorage();
+            if(_gen != null){
+                _gen.FillChunkStorage();
             }
 	}
         
          if (cmd.getName().equalsIgnoreCase("gen")) { 
             if(!(sender instanceof Player)){return false;}
+            _player = (Player)sender;
+            
             int size = 7;
+            int mobCount = 0;
             try {
                 size = Integer.parseInt(args[0]);
+                mobCount = Integer.parseInt(args[1]);
             } catch (Exception e) {
                 sender.sendMessage("Wrong arguements.");
                 return false;
@@ -69,46 +88,58 @@ public class Rifts extends JavaPlugin implements Listener{
                 return false;
             }
             
-            gen = new Generator((Player)sender, size);
-            
-            long start = System.nanoTime();
-
-            gen.WipeMaze();
-            
-            long end = System.nanoTime();
-            getLogger().info("Wipe took: " + (end - start)/1e6);
-            end = start;
-            start = System.nanoTime();
-            
-            // gen a maze for as long as possible
-            while (gen.GenNextChunk()) {}
-            
-            // Create end room at current end point
-            gen.GenEndRoom();
-            
-            // Start adding branches
-            while(gen.SetUpNextBranch()){
- 
-                // Create branch
-                while (gen.GenNextChunk()) {}
-
-            }
-            end = System.nanoTime();
-            getLogger().info("Generated in: " + (end - start)/1e6);
-            end = start;
-            start = System.nanoTime();
-            
-            gen.DrawMaze();
-             
-            end = System.nanoTime();
-            getLogger().info("Drawn in: " + (end - start)/1e6);
+            SetupNewLevel(size, mobCount);
             
             return true;
 	}
 	return false; 
     }
     
+    @EventHandler
+    public void OnPlayerMove(PlayerMoveEvent event){
+        event.getPlayer().setFoodLevel(20);
+        _mh.UnchainLoSMobs(event.getPlayer());
+    }
     
+    @EventHandler
+    public void OnEntityDeath(EntityDeathEvent event){
+        LivingEntity entity = event.getEntity();
+        if(entity.getType() == EntityType.PLAYER){
+            getServer().broadcastMessage("You failed!");
+            _mh.DespawnAllMobs();
+            return;
+        }
+        
+        int alive = _mh.CountAliveMobs();
+        if(_mh.BossIsSpawned()){
+            if(_mh.BossIsDead()){
+                getServer().broadcastMessage("Level won!");
+                SetupNewLevel(7, 50);
+                return;
+            }
+        }else{
+            if(alive == 0){
+                _mh.SpawnBoss(_gen.GetBossSpawn());
+                getServer().broadcastMessage("The boss has spawned at the end of the maze!");
+                return;
+            }
+            else{
+                getServer().broadcastMessage(alive + " mobs remain!");
+                return;
+            }
+        }
+    }
     
-    
+    public void SetupNewLevel(int mazeSize, int mobCount){
+        _mh.DespawnAllMobs();
+        _gen = new Generator(_player, mazeSize);
+        _gen.CreateMaze();
+            
+        _player.getInventory().clear();
+        _player.getInventory().addItem(new ItemStack(Material.IRON_SWORD));
+        _player.teleport(_gen.GetStartPoint());
+            
+        //Spawn mobs at spawn locations
+        _mh.SpawnMobs(mobCount, _gen.GetMobSpawns());
+    }
 }

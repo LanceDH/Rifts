@@ -1,6 +1,6 @@
     name: Rifts
     main: io.github.lancedh.rifts.Rifts
-    version: 0.4
+    version: 0.5
     authors: 
         - LanceDH   
     commands:
@@ -16,6 +16,6 @@
             permission-message: You don't have <permission>
         gen:
             description: Build a maze of a specific size.
-            usage: /<command> <size>
+            usage: /<command> <size> <mobCount>
             permission: 
             permission-message: You don't have <permission>

@@ -7,16 +7,20 @@ package io.github.lancedh.rifts;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.SkullType;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Banner;
+import org.bukkit.block.Skull;
 import org.bukkit.entity.Player;
+import org.bukkit.util.Vector;
 
 /**
  *
@@ -35,6 +39,9 @@ public class Generator {
     private int _prevDir = 0;
     private Random _rng;
     private ChunkStorage _storage;
+    private Location _startPoint;
+    private List<Location> _mobSpawns;
+    private Location _bossSpawn;
     
     public Generator(Player p, int size) {
         //Always make maze an uneven number
@@ -43,61 +50,172 @@ public class Generator {
         _world = p.getWorld();
         _rng = new Random();
         _storage = new ChunkStorage();
+        _mobSpawns = new ArrayList<Location>();
         CreateStart();
         InitChunkSize(p);
         FillChunkStorage();
         //CopyChunk(p, 0);
     }
     
-    public void DEBUGTestStorage(){
-        BlockState[][][] chunk = new BlockState[_chunkSize][_chunkSize][_chunkSize];
-        Location nloc = null;
-        BlockState bs = null;
-        for (int i = 0; i <= 19; i++) {
-            chunk = _storage.GetChunkOfId(i);
-            
-            
-            for (int x = 0; x < _chunkSize; x++) {
-                for (int y = 0; y < _chunkSize; y++) {
-                    for (int z = 0; z < _chunkSize; z++) {
-                        bs = chunk[x][y][z];
-                        if(!BlockStateRequiresWall(bs)){
-                        //start point of chunk
-                        nloc = new Location(_world, _chunkSize*2, GROUND_Y, i*_chunkSize);
-                        //move location per block
-                        nloc.add(x, y, z);
-                        
-                        
-                        nloc.getBlock().setTypeIdAndData(bs.getTypeId(), bs.getData().getData(), false);
-
-                        SetSpecificData(bs, nloc);
-                        }
-                    }
-                }
-            }
-            
-            //torches
-            
-            for (int x = 0; x < _chunkSize; x++) {
-                for (int y = 0; y < _chunkSize; y++) {
-                    for (int z = 0; z < _chunkSize; z++) {
-                        if(BlockStateRequiresWall(bs)){
-                        //start point of chunk
-                        nloc = new Location(_world, _chunkSize*2, GROUND_Y, i*_chunkSize);
-                        //move location per block
-                        nloc.add(x, y, z);
-                        bs = chunk[x][y][z];
-                        
-                        nloc.getBlock().setTypeIdAndData(bs.getTypeId(), bs.getData().getData(), false);
-                        }
-                    }
-                }
-            }
-            
-        }
-        
+    public Location GetStartPoint(){
+        return _startPoint;
     }
     
+    public List<Location> GetMobSpawns(){
+        return _mobSpawns;
+    }
+    
+    public Location GetBossSpawn(){
+        return _bossSpawn;
+    }
+    
+    private void SetStartPoint(){
+        Location nloc = null;
+        Sign sign = null;
+        for (int x = -_mazeSize * _chunkSize / 2-1; x < _mazeSize * _chunkSize / 2+1; x++) {
+            for (int z = -_mazeSize * _chunkSize / 2-1; z < _mazeSize * _chunkSize / 2+1; z++) {
+                for (int y = GROUND_Y; y < GROUND_Y + _chunkSize; y++) {
+                    nloc = new Location(_world, x, y, z);
+                    nloc = nloc.add(0, 0, -_mazeSize * _chunkSize);
+                    if(nloc.getBlock().getState() instanceof Sign){
+                        sign = (Sign) nloc.getBlock().getState();
+                        if("[start]".equals(sign.getLine(0).toLowerCase())){
+                            _startPoint = nloc;
+                            _startPoint = _startPoint.add(0.5, 0, 0.5);
+                            _startPoint.setDirection(new Vector(nloc.getX(), nloc.getY(), nloc.getZ() - 1));
+                            
+                            nloc.getBlock().setType(Material.AIR);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        System.out.println("No start fround");
+    }
+    
+    private void SetMobSpawns(){
+        Location nloc = null;
+        Skull skull = null;
+        Sign sign = null;
+        for (int x = -_mazeSize * _chunkSize / 2-1; x < _mazeSize * _chunkSize / 2+1; x++) {
+            for (int z = -_mazeSize * _chunkSize / 2-1; z < _mazeSize * _chunkSize / 2+1; z++) {
+                for (int y = GROUND_Y; y < GROUND_Y + _chunkSize; y++) {
+                    nloc = new Location(_world, x, y, z);
+                    nloc = nloc.add(0, 0, -_mazeSize * _chunkSize);
+                    if(nloc.getBlock().getState() instanceof Skull){
+                        _mobSpawns.add(new Location(nloc.getWorld(), nloc.getBlockX()+0.5, nloc.getBlockY()+0.5, nloc.getBlockZ()+0.5));
+                        nloc.getBlock().setType(Material.AIR);
+                    }
+                    // would use skulls but shit's broken
+                    if(nloc.getBlock().getState() instanceof Sign){
+                        sign = (Sign) nloc.getBlock().getState();
+                        if("[boss]".equals(sign.getLine(0).toLowerCase()) ){
+                            _bossSpawn = new Location(nloc.getWorld(), nloc.getBlockX()+0.5, nloc.getBlockY()+0.5, nloc.getBlockZ()+0.5);
+                            nloc.getBlock().setType(Material.AIR);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private void DEBUGDrawMaze(){
+        String s = "";
+        for (int i = 0; i < _mazeSize; i++) {
+            for (int j = 0; j < _mazeSize; j++) {
+                s += (char)DEBUGGetChunkChar(_maze[j][i]);
+            }
+            System.out.println(s);
+            s = "";
+        }
+        System.out.println(" ");
+    }
+    
+    private int DEBUGGetChunkChar(Chunk c){
+        if(c == null){ return 176;}
+        switch(c.GetChunkId()){
+            case 0:
+                return 2;
+            case 1:
+                return 32;
+            case 2:
+                return 16;
+            case 3:
+                return 192;
+            case 4:
+                return 31;
+            case 5:
+                return 179;
+            case 6:
+                return 218;
+            case 7:
+                return 195;
+            case 8:
+                return 17;
+            case 9:
+                return 217;
+            case 10:
+                return 196;
+            case 11:
+                return 193;
+            case 12:
+                return 191;
+            case 13:
+                return 180;
+            case 14:
+                return 194;
+            case 15:
+                return 197;
+            case 16:
+                return 219;
+            case 17:
+                return 219;
+            case 18:
+                return 219;
+            case 19:
+                return 219;
+        }
+        return 63;
+    }
+    
+    public void CreateMaze(){
+        long start = System.nanoTime();
+
+            WipeMaze();
+            
+            long end = System.nanoTime();
+            System.out.println("Wipe took: " + (end - start)/1e6);
+            end = start;
+            start = System.nanoTime();
+            
+            // gen a maze for as long as possible
+            while (GenNextChunk()) {}
+            // Create end room at current end point
+            GenEndRoom();
+            // Start adding branches
+            int count = 1;
+            while(SetUpNextBranch()){
+ 
+                // Create branch
+                while (GenNextChunk()) {}
+                count++;
+            }
+            end = System.nanoTime();
+            System.out.println("Generated in: " + (end - start)/1e6);
+            end = start;
+            start = System.nanoTime();
+            
+            DrawMaze();
+             
+            end = System.nanoTime();
+            System.out.println("Drawn in: " + (end - start)/1e6);
+            
+            SetStartPoint();
+            SetMobSpawns();
+    }
+
+
     public void FillChunkStorage(){
         _storage.Reset();
         Location nloc = null;
@@ -133,13 +251,6 @@ public class Generator {
     }
     
     private void CreateStart(){
-        for (int x = -_mazeSize * _chunkSize / 2-1; x < _mazeSize * _chunkSize / 2+1; x++) {
-            for (int z = -_mazeSize * _chunkSize / 2-1; z < _mazeSize * _chunkSize / 2+1; z++) {
-                   Location nloc = new Location(_world, x, MAZE_GROUND, z);
-                   nloc.getBlock().setType(Material.GRASS);
-            }
-        }
-        
         int x = _mazeSize/2;
         int y = _mazeSize/2;
         _maze[x][y] = new Chunk(0, x, y);
@@ -150,26 +261,39 @@ public class Generator {
         _maze[x][y - 1] = new Chunk(-1, _nextX, _nextY);
     }
     
-    public void WipeMaze(){
+    private void WipeMaze(){
         for (int i = 0; i < _mazeSize; i++) {
             for (int j = 0; j < _mazeSize; j++) {
                 _maze[i][j] = null;
             }
         }
         
-       // for (int x = -_mazeSize * _chunkSize / 2-1; x < _mazeSize * _chunkSize / 2+1; x++) {
-       //     for (int z = -_mazeSize * _chunkSize / 2-1; z < _mazeSize * _chunkSize / 2+1; z++) {
-       //         for (int y = MAZE_GROUND; y < MAZE_GROUND + _chunkSize; y++) {
-       //            Location nloc = new Location(_world, x, y, z);
-       //            nloc.getBlock().setType(Material.AIR);
-       //        }
-       //     }
-       // }
+        for (int x = -_mazeSize * _chunkSize / 2-1; x < _mazeSize * _chunkSize / 2+1; x++) {
+            for (int z = -_mazeSize * _chunkSize / 2-1; z < _mazeSize * _chunkSize / 2+1; z++) {
+                for (int y = MAZE_GROUND; y < MAZE_GROUND + _chunkSize; y++) {
+                   Location nloc = new Location(_world, x, y, z);
+                   if(IsPlacedInSecondRunthrough(nloc.getBlock().getState())){
+                        nloc.getBlock().setType(Material.AIR);
+                   }
+               }
+            }
+        }
+        
+        for (int x = -_mazeSize * _chunkSize / 2-1; x < _mazeSize * _chunkSize / 2+1; x++) {
+            for (int z = -_mazeSize * _chunkSize / 2-1; z < _mazeSize * _chunkSize / 2+1; z++) {
+                for (int y = MAZE_GROUND; y < MAZE_GROUND + _chunkSize; y++) {
+                   Location nloc = new Location(_world, x, y, z);
+                   if(!IsPlacedInSecondRunthrough(nloc.getBlock().getState())){
+                        nloc.getBlock().setType(Material.AIR);
+                   }
+               }
+            }
+        }
         
         CreateStart();
     }
     
-    public void DrawMaze(){
+    private void DrawMaze(){
         int x = 0;
         int y = 0;
         for (int i = 0; i < _mazeSize; i++) {
@@ -194,15 +318,15 @@ public class Generator {
     private void DrawChunk(int chunkId, int xPos, int yPos){
         BlockState[][][] chunk = _storage.GetChunkOfId(chunkId);
         BlockState bs = null;
-        Location nloc = new Location(_world, xPos, MAZE_GROUND, yPos);
+        Location nloc = new Location(_world, xPos, GROUND_Y, yPos-_chunkSize*_mazeSize);
 
         for (int x = 0; x < _chunkSize; x++) {
             for (int y = 0; y < _chunkSize; y++) {
                 for (int z = 0; z < _chunkSize; z++) {
                     bs =  chunk[x][y][z];
-                    if(!BlockStateRequiresWall(bs)){
+                    if(!IsPlacedInSecondRunthrough(bs)){
                     //start point of chunk
-                    nloc = new Location(_world, xPos, MAZE_GROUND, yPos);
+                    nloc = new Location(_world, xPos, GROUND_Y, yPos-_chunkSize*_mazeSize);
                     //move location per block
                     nloc.add(x, y, z);
                     
@@ -221,9 +345,9 @@ public class Generator {
             for (int y = 0; y < _chunkSize; y++) {
                 for (int z = 0; z < _chunkSize; z++) {
                     bs =  chunk[x][y][z];
-                    if(BlockStateRequiresWall(bs)){
+                    if(IsPlacedInSecondRunthrough(bs)){
                     //start point of chunk
-                    nloc = new Location(_world, xPos, MAZE_GROUND, yPos);
+                    nloc = new Location(_world, xPos, GROUND_Y, yPos-_chunkSize*_mazeSize);
                     //move location per block
                     nloc.add(x, y, z);
 
@@ -239,7 +363,7 @@ public class Generator {
     
     private void SetSpecificData(BlockState bs, Location loc){
         // Signs
-        if(bs.getType() == Material.SIGN || bs.getType() == Material.WALL_SIGN){
+        if(bs instanceof Sign){
             Sign state = (Sign) bs;
             Sign target = (Sign) loc.getBlock().getState();
             for (int i = 0; i < 4; i++) {
@@ -249,7 +373,7 @@ public class Generator {
         }
         
         // Banners
-        if(bs.getType() == Material.STANDING_BANNER || bs.getType() == Material.BANNER.WALL_BANNER){
+        if(bs instanceof Banner){
             Banner state = (Banner) bs;
             Banner target = (Banner) loc.getBlock().getState();
             target.setBaseColor(state.getBaseColor());
@@ -258,7 +382,7 @@ public class Generator {
         }
     }
     
-    private boolean BlockStateRequiresWall(BlockState bs){
+    private boolean IsPlacedInSecondRunthrough(BlockState bs){
         if(bs.getType() == Material.TORCH){
             return true;
         }
@@ -272,6 +396,22 @@ public class Generator {
         }
         
         if(bs.getType() == Material.VINE){
+            return true;
+        }
+        
+        if(bs.getType() == Material.LONG_GRASS){
+            return true;
+        }
+        
+        if(bs.getType() == Material.REDSTONE_LAMP_ON){
+            return true;
+        }
+        
+        if(bs.getType() == Material.GLOWSTONE){
+            return true;
+        }
+        
+        if(bs.getType() == Material.SEA_LANTERN){
             return true;
         }
         
@@ -312,21 +452,6 @@ public class Generator {
         return count;
     }
     
-    private int GetOppositeDirection(int dir){
-        switch(dir){
-            case 1:
-                return 4;
-            case 2:
-                return 8;
-            case 4:
-                return 1;
-            case 8:
-                return 2;
-        }
-        
-        return -1;
-    }
-    
     private void CheckForPossibleBranches(){
         Chunk c = null;
         int[] freeSpots = new int[4];
@@ -365,7 +490,7 @@ public class Generator {
             
     }
     
-    public boolean SetUpNextBranch(){
+    private boolean SetUpNextBranch(){
         
         CheckForPossibleBranches();
         
@@ -382,8 +507,6 @@ public class Generator {
                 }
             }
         }
-        
-        
         
         if(longest == 0){
             // No branches left
@@ -415,6 +538,7 @@ public class Generator {
         for (int i = 0; i < 4; i++) {
             if(freeSpots[i] == longest){
                 StartBranch(c, (int)Math.pow(2, i));
+                break;
             }
         }
         
@@ -433,7 +557,7 @@ public class Generator {
         return true;
     }
     
-    public void GenEndRoom(){
+    private void GenEndRoom(){
         int id = 16;
         
         switch(_prevDir){
@@ -451,7 +575,7 @@ public class Generator {
         _maze[_nextX][_nextY] = new Chunk(id, _nextX, _nextY);
     }
     
-    public boolean GenNextChunk(){
+    private boolean GenNextChunk(){
         int x = _nextX;
         int y = _nextY;
         int prevDir = _prevDir;
@@ -592,41 +716,11 @@ public class Generator {
         }
         return countArr;
     }
-    
-    public void CopyChunk(Player p, int chunkId){
-        Location loc = p.getLocation();
-        Block b = null;
-        World w = loc.getWorld();
-        
-        for (int x = 0; x < _chunkSize; x++) {
-            for (int y = 0; y < _chunkSize; y++) {
-                for (int z = 0; z < _chunkSize; z++) {
-                   b =  w.getBlockAt(x, GROUND_Y + y, chunkId * _chunkSize + z);
-                   Location nloc = new Location(w, 0, MAZE_GROUND, _nrSpawnedChunks * _chunkSize);
-                   nloc.add(x, y, z);
-                   nloc.getBlock().setType(b.getType());
-                   nloc.getBlock().setData(b.getData());
-                   // signs
-                   if(b.getType() == Material.SIGN){
-                       Sign sOrigin = (Sign) b.getState();
-                       Sign sNew = (Sign) nloc.getBlock().getState();
-                       for (int i = 0; i < 4; i++) {
-                           sNew.setLine(i, sOrigin.getLine(i));
-                           sNew.update();
-                       }
-                   }
-                }
-            }
-        }
-        
-        _nrSpawnedChunks += 1;
-    }
 
     private void StartBranch(Chunk c, int dir) {
         _nextX = c.GetxPos();
         _nextY = c.GetyPos();
         SetNextValues(_nextX, _nextY, dir);
-
         c.AddDirectionToChunkId(dir);
                 
     }
