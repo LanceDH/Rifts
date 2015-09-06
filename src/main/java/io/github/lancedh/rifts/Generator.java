@@ -12,9 +12,8 @@ import java.util.Map;
 import java.util.Random;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.SkullType;
+import org.bukkit.Server;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Banner;
@@ -27,7 +26,7 @@ import org.bukkit.util.Vector;
  * @author LanceDH
  */
 public class Generator {
-    private final int GROUND_Y = 7;
+    private final int GROUND_Y = 1;
     private final int MAZE_GROUND = 32;
     private int _chunkSize = 0;
     private int _nrSpawnedChunks = 0;
@@ -42,8 +41,10 @@ public class Generator {
     private Location _startPoint;
     private List<Location> _mobSpawns;
     private Location _bossSpawn;
+    private InfoBoard _infoBoard;
+    private int _level = 0;
     
-    public Generator(Player p, int size) {
+    public Generator(Player p, Server s, int size) {
         //Always make maze an uneven number
         _mazeSize = (size / 2 ) * 2 + 1 ;
         _maze = new Chunk[_mazeSize][_mazeSize];
@@ -51,10 +52,19 @@ public class Generator {
         _rng = new Random();
         _storage = new ChunkStorage();
         _mobSpawns = new ArrayList<Location>();
+        _infoBoard = new InfoBoard(s);
         CreateStart();
         InitChunkSize(p);
         FillChunkStorage();
         //CopyChunk(p, 0);
+    }
+    
+    public void UpdateScoreboard(int count){
+        _infoBoard.SetMobsLeft(count);
+    }
+    
+    public void ShowScoreboardToPlayer(Player p){
+        _infoBoard.ShowToPlayer(p);
     }
     
     public Location GetStartPoint(){
@@ -213,6 +223,9 @@ public class Generator {
             
             SetStartPoint();
             SetMobSpawns();
+            
+            _level++;
+            _infoBoard.SetLeveL(_level);
     }
 
 
@@ -419,7 +432,7 @@ public class Generator {
     }
     
     private void InitChunkSize(Player p){
-        Location loc = new Location(p.getLocation().getWorld(), 0, GROUND_Y, -1);
+        Location loc = new Location(p.getLocation().getWorld(), 0, GROUND_Y-1, -1);
         int count = 1;
         while (count <= 16 && loc.getBlock().getType() != Material.WOOL) {
             count += 1;

@@ -5,43 +5,40 @@
  */
 package io.github.lancedh.rifts;
 
+import java.util.Random;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 /**
  *
  * @author LanceDH
  */
 public class Rifts extends JavaPlugin implements Listener{
-    private Generator _gen = null;
-    private World _world = null;
-    private MobHandler _mh = null;
-    private Player _player = null;
+    private Generator _gen;
+    private World _world;
+    private MobHandler _mh;
+    private Player _player;
+    private Server _server;
     
     @Override
     public void onEnable() {
-        getServer().getPluginManager().registerEvents(this, this);
+        _server = getServer();
+        _server.getPluginManager().registerEvents(this, this);
         getLogger().info("Rifts has been enabled.");
         _world = Bukkit.getWorlds().get(0);
         _mh = new MobHandler(_world);
-        
     }
     
     @Override
@@ -105,40 +102,54 @@ public class Rifts extends JavaPlugin implements Listener{
     public void OnEntityDeath(EntityDeathEvent event){
         LivingEntity entity = event.getEntity();
         if(entity.getType() == EntityType.PLAYER){
-            getServer().broadcastMessage("You failed!");
+            _server.broadcastMessage("You failed!");
             _mh.DespawnAllMobs();
             return;
         }
         
         int alive = _mh.CountAliveMobs();
+        _gen.UpdateScoreboard(alive);
         if(_mh.BossIsSpawned()){
             if(_mh.BossIsDead()){
-                getServer().broadcastMessage("Level won!");
+                _server.broadcastMessage("Level won!");
                 SetupNewLevel(7, 50);
                 return;
             }
         }else{
             if(alive == 0){
                 _mh.SpawnBoss(_gen.GetBossSpawn());
-                getServer().broadcastMessage("The boss has spawned at the end of the maze!");
+                _server.broadcastMessage("The boss has spawned at the end of the maze!");
                 return;
             }
             else{
-                getServer().broadcastMessage(alive + " mobs remain!");
+                _server.broadcastMessage(alive + " mobs remain!");
                 return;
             }
         }
     }
     
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event)
+    {
+        
+        //_gen.ShowScoreboardToPlayer(event.getPlayer());
+    }
+    
     public void SetupNewLevel(int mazeSize, int mobCount){
         _mh.DespawnAllMobs();
-        _gen = new Generator(_player, mazeSize);
+        _gen = new Generator(_player, _server, mazeSize);
         _gen.CreateMaze();
             
-        _player.getInventory().clear();
-        _player.getInventory().addItem(new ItemStack(Material.IRON_SWORD));
         _player.teleport(_gen.GetStartPoint());
-            
+        _gen.ShowScoreboardToPlayer(_player);
+        
+        Random rng = new Random();
+        if (rng.nextInt(2)== 1) {
+            CombatClass.EquipPlayer(CombatClass.Class.ARCHER, _player);
+        }else{
+            CombatClass.EquipPlayer(CombatClass.Class.WARRIOR, _player);
+        }
+        
         //Spawn mobs at spawn locations
         _mh.SpawnMobs(mobCount, _gen.GetMobSpawns());
     }
