@@ -36,7 +36,7 @@ public class InfoBoard{
         for (String s : _scoreboard.getEntries()) {
             _scoreboard.resetScores(s);
         }
-        _sidebar.setDisplayName("- Rift level " + _level + " - ");
+        _sidebar.setDisplayName("- Rift level " + _level + " -");
         _sidebar.getScore(" ").setScore(line--);
         _sidebar.getScore("Mobs: " + _mobsLeft).setScore(line--);
     }
@@ -46,7 +46,7 @@ public class InfoBoard{
         UpdateText();
     }
     
-    public void SetLeveL(int level){
+    public void SetLevel(int level){
         _level = level;
         UpdateText();
     }
@@ -55,4 +55,7 @@ public class InfoBoard{
         p.setScoreboard(_scoreboard);
     }
     
+    public void HideFromPlayer(Player p){
+        p.setScoreboard(_server.getScoreboardManager().getMainScoreboard());
+    }
 }
